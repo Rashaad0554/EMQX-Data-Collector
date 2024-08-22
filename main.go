@@ -18,8 +18,8 @@ import (
 // Struct containing the message information that is inserted into the database. Primary key and last measured timestamp are updated automatically so they are not included
 type Message struct {
 	topic_sensor_name string
-	gasName           string
-	units             string
+	// gasName           string
+	// units             string
 	measurement       string
 }
 
@@ -131,15 +131,6 @@ func loadTLSConfig(caFile string) *tls.Config {
 }
 
 func tableInsert(db *sql.DB, message Message) int {
-	// topicCheckQuery := `SELECT COUNT(*) FROM Topics WHERE topicName = ?`
-	// sensorCheckQuery := `SELECT COUNT(*) FROM Sensors WHERE sensorname = ?`
-
-	// var topicCount int
-	// err := db.QueryRow(topicCheckQuery, message.topic_sensor_name).Scan(&topicCount)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	topicIDQuery := `SELECT topicID FROM Topics WHERE topicName = ?`
 	topicID, err := db.Query(topicIDQuery, message.topic_sensor_name) // change to QueryRow
 	if err != nil {
@@ -148,11 +139,10 @@ func tableInsert(db *sql.DB, message Message) int {
 
 	// insert topic into Topics (if needed) and log into Logs
 	logInsertQuery := `INSERT INTO Logs (topicID, measurement, measureTime)`
-	var log_entry sql.Result
 	if topicID == nil {
-		topicInsertQuery := `INSERT INTO Topics (topic_name, gasName, unitOfMeasurement)
-		VALUES (?, ?, ?)`
-		topic_entry, err := db.Exec(topicInsertQuery, message.topic_sensor_name, message.gasName, message.units)
+		topicInsertQuery := `INSERT INTO Topics (topic_name)
+		VALUES (?)`
+		topic_entry, err := db.Exec(topicInsertQuery, message.topic_sensor_name)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -163,37 +153,30 @@ func tableInsert(db *sql.DB, message Message) int {
 		}
 
 		log_entry, err := db.Exec(logInsertQuery, topicID, message.measurement)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//Gets the ID for the
+		lastInsertId, err := log_entry.LastInsertId()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return int(lastInsertId)
+		
 	} else {
 		log_entry, err := db.Exec(logInsertQuery, topicID, message.measurement)
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
 
-	// if topicCount <= 0 {
-	// 	topic_entry, err := db.Exec(topicInsertQuery, message.topic_sensor_name, message.gasName, message.units)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
+		//Gets the ID for the
+		lastInsertId, err := log_entry.LastInsertId()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// 	topicID, err := topic_entry.LastInsertId()
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	log_entry, err := db.Exec(logInsertQuery, topicID, message.measurement)
-	// } else {
-	// 	log_entry, err := db.Exec(logInsertQuery, topicID, message.measurement)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }
-
-	//Gets the ID for the
-	lastInsertId, err := log_entry.LastInsertId()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return int(lastInsertId)
+		return int(lastInsertId)
+	}	
 }

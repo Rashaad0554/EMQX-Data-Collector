@@ -19,8 +19,8 @@ CREATE TABLE Topics (
   topicID INT,
   -- sensorID INT,
   topicName VARCHAR(128) NOT NULL,
-  gasName VARCHAR(128),
-  unitOfMeasurement VARCHAR(128) NOT NULL,
+  -- gasName VARCHAR(128),
+  -- unitOfMeasurement VARCHAR(128) NOT NULL,
   PRIMARY KEY (topicID)
   -- FOREIGN KEY (sensorID) REFERENCES Sensors(sensorID)
 );
