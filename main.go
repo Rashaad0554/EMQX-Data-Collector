@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
 	//"io/ioutil"
 	"log"
@@ -20,7 +21,7 @@ type Message struct {
 	topic_sensor_name string
 	// gasName           string
 	// units             string
-	measurement       string
+	measurement string
 }
 
 // type Sensor struct {
@@ -29,19 +30,19 @@ type Message struct {
 // 	address   string
 // }
 
-type Topic struct {
-	topicID int64
-	// sensorID          int64
-	topicName         string
-	gasName           string
-	unitOfMeasurement string
-}
+// type Topic struct {
+// 	topicID int64
+// 	// sensorID          int64
+// 	topicName         string
+// 	gasName           string
+// 	unitOfMeasurement string
+// }
 
-type Log struct {
-	logID       int64
-	topicID     int64
-	measurement string
-}
+// type Log struct {
+// 	logID       int64
+// 	topicID     int64
+// 	measurement string
+// }
 
 var db *sql.DB
 
@@ -50,18 +51,18 @@ const protocol = "ssl"
 const broker = "g332f11e.ala.eu-central-1.emqxsl.com"
 const port = 8883
 const topic = "root/faux/data/#"
-const username = "Fayaaz"
-const password = "FA5"
+const username = "Rashaad"
+const password = "Rashaad"
 
 func main() {
 	client := createMqttClient()
 	go subscribe(client)         // we use goroutine to run the subscription function
 	time.Sleep(time.Second * 10) // pause minimum of 2 seconds to wait for the subscription function to be ready, otherwise subscriber function doesn't receive messages
-	var broker_msg = subscribe(client)
-
+	var broker_msg, broker_topic, sensor_name = subscribe(client)
+	fmt.Println(sensor_name)
 	cfg := mysql.Config{
-		User:                 os.Getenv("DBUSER"), //Set DBUSER and DBPASS environment variables
-		Passwd:               os.Getenv("DBPASS"), //Alternatively, the SQL username and password can also be set manually without using environment variables but that will make them visible to the public if published to a public repository
+		User:                 "rashaad", //os.Getenv("DBUSER"), //Set DBUSER and DBPASS environment variables
+		Passwd:               "RA5",     //os.Getenv("DBPASS"), //Alternatively, the SQL username and password can also be set manually without using environment variables but that will make them visible to the public if published to a public repository
 		Net:                  "tcp",
 		Addr:                 "127.0.0.1:3306",
 		DBName:               "emqx_data",
@@ -75,7 +76,7 @@ func main() {
 	}
 	defer db.Close()
 
-	msg := Message{topic, broker_msg}
+	msg := Message{broker_topic, broker_msg}
 	tableInsert(db, msg)
 
 }
@@ -104,14 +105,20 @@ func createMqttClient() mqtt.Client {
 	return client
 }
 
-func subscribe(client mqtt.Client) string {
+func subscribe(client mqtt.Client) (string, string, string) {
 	qos := 0
 	broker_msg := make(chan string)
+	broker_topic := make(chan string)
+	sensor_name := make(chan string)
 	client.Subscribe(topic, byte(qos), func(client mqtt.Client, msg mqtt.Message) {
 		fmt.Printf("Received message: %s, from topic: %s \n", msg.Payload(), msg.Topic())
+		split := strings.Split(string(msg.Topic()), "/")
 		broker_msg <- string(msg.Payload())
+		broker_topic <- string(msg.Topic())
+		sensor_name <- split[3]
 	})
-	return <-broker_msg
+
+	return (<-broker_msg), (<-broker_topic), (<-sensor_name)
 }
 
 func loadTLSConfig(caFile string) *tls.Config {
@@ -164,7 +171,7 @@ func tableInsert(db *sql.DB, message Message) int {
 		}
 
 		return int(lastInsertId)
-		
+
 	} else {
 		log_entry, err := db.Exec(logInsertQuery, topicID, message.measurement)
 		if err != nil {
@@ -178,5 +185,5 @@ func tableInsert(db *sql.DB, message Message) int {
 		}
 
 		return int(lastInsertId)
-	}	
+	}
 }
